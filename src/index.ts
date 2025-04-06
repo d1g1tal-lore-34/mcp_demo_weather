@@ -37,7 +37,11 @@ app.use(buildMSALToken({ tenantId, clientId }).unless({ path: ["/health"] }));
 const transports: { [sessionId: string]: SSEServerTransport } = {}
 
 app.get("/sse", async (req: RequestWithMsalAuth, res: Response) => {
-    if (req.auth?.scp != "MCP.All") res.status(401).send(`Your not authorized to access this endpoint. Your current scope is ${req.auth?.scp}`)
+    // if (req.auth?.scp != "MCP.All") res.status(401).send(`Your not authorized to access this endpoint. Your current scope is ${req.auth?.scp}`)
+    if ( !checkAuthorz(req.auth?.roles) ) {
+        res.status(401).send(`Your not authorized to access this endpoint. Your current scope is ${req.auth?.roles}`)
+        return;
+    }
 
     const transport = new SSEServerTransport('/messages', res);
     transports[transport.sessionId] = transport;
@@ -48,7 +52,11 @@ app.get("/sse", async (req: RequestWithMsalAuth, res: Response) => {
 });
 
 app.post("/messages", async (req: RequestWithMsalAuth, res: Response) => {
-    if (req.auth?.scp != "MCP.All") res.status(401).send(`Your not authorized to access this endpoint. Your current scope is ${req.auth?.scp}`)
+    // if (req.auth?.scp != "MCP.All") res.status(401).send(`Your not authorized to access this endpoint. Your current scope is ${req.auth?.scp}`)
+    if ( !checkAuthorz(req.auth?.roles) ) {
+        res.status(401).send(`Your not authorized to access this endpoint. Your current scope is ${req.auth?.roles}`)
+        return;
+    }
 
     const sessionId = req.query.sessionId as string;
     const transport = transports[sessionId];
@@ -261,5 +269,14 @@ server.tool(
         };
     },
 );
+
+function checkAuthorz(roles: string[] | undefined){
+    if(roles){
+        roles.includes('mcp.user');
+        return true
+    }else{
+        return false
+    }
+}
 
 app.listen(3001);
