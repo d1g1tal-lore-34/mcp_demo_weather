@@ -1,11 +1,26 @@
+import dotenv from 'dotenv';
+dotenv.config()
 import express, { Request, Response } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { z } from "zod";
-import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
+import { buildMSALToken, RequestWithMsalAuth } from './security/auth_handler.js';
 
 const NWS_API_BASE = "https://api.weather.gov";
 const USER_AGENT = "weather-app/1.0";
+const tenantId = process.env.TENANT_ID
+if (!tenantId) {
+    throw new Error(
+        "TENANT_ID not defined."
+    )
+}
+
+const clientId = process.env.CLIENT_ID
+if (!clientId) {
+    throw new Error(
+        "CLIENT_ID not defined."
+    )
+}
 
 const server = new McpServer({
     name: "weather-server",
@@ -17,10 +32,13 @@ const server = new McpServer({
 });
 
 const app = express();
+app.use(buildMSALToken({ tenantId, clientId }).unless({ path: ["/health"] }));
 
 const transports: { [sessionId: string]: SSEServerTransport } = {}
 
-app.get("/sse", async (_: Request, res: Response) => {
+app.get("/sse", async (req: RequestWithMsalAuth, res: Response) => {
+    if (req.auth?.scp != "MCP.All") res.status(401).send(`Your not authorized to access this endpoint. Your current scope is ${req.auth?.scp}`)
+
     const transport = new SSEServerTransport('/messages', res);
     transports[transport.sessionId] = transport;
     res.on("close", () => {
@@ -29,7 +47,9 @@ app.get("/sse", async (_: Request, res: Response) => {
     await server.connect(transport);
 });
 
-app.post("/messages", async (req: Request, res: Response) => {
+app.post("/messages", async (req: RequestWithMsalAuth, res: Response) => {
+    if (req.auth?.scp != "MCP.All") res.status(401).send(`Your not authorized to access this endpoint. Your current scope is ${req.auth?.scp}`)
+
     const sessionId = req.query.sessionId as string;
     const transport = transports[sessionId];
     if (transport) {
@@ -39,8 +59,8 @@ app.post("/messages", async (req: Request, res: Response) => {
     }
 });
 
-app.get("/", (req: Request, res: Response) => {
-    res.send("Hello World");
+app.get("/health", (req: RequestWithMsalAuth, res: Response) => {
+    res.send("Hello World, i'm healthy!!");
 });
 
 async function makeNWSRequest<T>(url: string): Promise<T | null> {
