@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 dotenv.config()
-import express, { Request, Response } from "express";
+import express, { Response } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { z } from "zod";
@@ -8,6 +8,14 @@ import { buildMSALToken, RequestWithMsalAuth } from './security/auth_handler.js'
 
 const NWS_API_BASE = "https://api.weather.gov";
 const USER_AGENT = "weather-app/1.0";
+
+const roleName = process.env.ROLE_NAME
+if (!roleName) {
+    throw new Error(
+        "ROLE_NAME not defined."
+    )
+}
+
 const tenantId = process.env.TENANT_ID
 if (!tenantId) {
     throw new Error(
@@ -38,7 +46,7 @@ const transports: { [sessionId: string]: SSEServerTransport } = {}
 
 app.get("/sse", async (req: RequestWithMsalAuth, res: Response) => {
     // if (req.auth?.scp != "MCP.All") res.status(401).send(`Your not authorized to access this endpoint. Your current scope is ${req.auth?.scp}`)
-    if ( !checkAuthorz(req.auth?.roles) ) {
+    if ( !checkAuthorz(req.auth?.roles, roleName) ) {
         res.status(401).send(`Your not authorized to access this endpoint. Your current scope is ${req.auth?.roles}`)
         return;
     }
@@ -53,7 +61,7 @@ app.get("/sse", async (req: RequestWithMsalAuth, res: Response) => {
 
 app.post("/messages", async (req: RequestWithMsalAuth, res: Response) => {
     // if (req.auth?.scp != "MCP.All") res.status(401).send(`Your not authorized to access this endpoint. Your current scope is ${req.auth?.scp}`)
-    if ( !checkAuthorz(req.auth?.roles) ) {
+    if ( !checkAuthorz(req.auth?.roles, roleName) ) {
         res.status(401).send(`Your not authorized to access this endpoint. Your current scope is ${req.auth?.roles}`)
         return;
     }
@@ -270,9 +278,9 @@ server.tool(
     },
 );
 
-function checkAuthorz(roles: string[] | undefined){
+function checkAuthorz(roles: string[] | undefined, roleName: string){
     if(roles){
-        roles.includes('mcp.user');
+        roles.includes(roleName);
         return true
     }else{
         return false
