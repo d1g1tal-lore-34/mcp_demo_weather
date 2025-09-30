@@ -8,8 +8,8 @@
         "type": "node",
         "request": "launch",
         "name": "Launch MCP Server",
-        "program": "${workspaceFolder}/build/index.js",
-        "preLaunchTask": "tsc: build - tsconfig.json",
+        "program": "${workspaceFolder}/ts_mcp_server/build/index.js",
+        "preLaunchTask": "tsc: build - ts_mcp_server/tsconfig.json",
         "outFiles": ["${workspaceFolder}/out/**/*.js"]
       }
     ]

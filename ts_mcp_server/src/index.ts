@@ -2,10 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config()
 import express, { Request, Response } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { ProxyOAuthServerProvider } from '@modelcontextprotocol/sdk/server/auth/providers/proxyProvider.js';
-import { mcpAuthRouter } from '@modelcontextprotocol/sdk/server/auth/router.js';
 import { buildMSALToken, RequestWithMsalAuth } from './security/auth_handler.js';
 import { registerWeatherTools } from './tools/weather.js';
 
