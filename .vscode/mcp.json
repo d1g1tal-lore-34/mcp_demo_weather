@@ -1,7 +1,7 @@
 {
 	"servers": {
 		"weather_mcp": {
-			"url": "http://localhost:3001/mcp",
+			"url": "http://localhost:5140",
 			"type": "http"
 		}
 	},
