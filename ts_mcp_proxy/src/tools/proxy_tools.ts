@@ -109,8 +109,23 @@ export class MCPSSEProxy {
                 continue;
             }
 
-            const description = remoteTool.description ?? remoteTool.summary ?? "";
-            const parameters = remoteTool.parameters ?? remoteTool.schema ?? undefined;
+            const description = remoteTool.description ?? remoteTool.summary ?? remoteTool.summaryText ?? "";
+
+            // Try to locate a parameter/input schema under common keys used by various MCP implementations
+            const parameters =
+                remoteTool.parameters ??
+                remoteTool.schema ??
+                remoteTool.inputSchema ??
+                remoteTool.argumentsSchema ??
+                remoteTool.args ??
+                remoteTool.inputs ??
+                (remoteTool.tool && (remoteTool.tool.parameters || remoteTool.tool.schema)) ??
+                undefined;
+
+            if (!parameters) {
+                // Log the remote tool shape to help debugging of missing metadata
+                console.debug(`Tool ${name} registered without parameters; remote tool keys: ${Object.keys(remoteTool).join(', ')}`);
+            }
 
             const handler = async (args: any) => {
                 try {
@@ -125,14 +140,19 @@ export class MCPSSEProxy {
                 }
             };
 
+            // Build a descriptor that preserves the remote tool metadata in case the server expects different keys
+            const descriptor: any = {
+                name,
+                description,
+                parameters,
+                // preserve raw metadata so the server implementation can inspect it if needed
+                metadata: remoteTool,
+                run: handler,
+            };
+
             // Try registering using a descriptor-like API first, then fall back to name+handler signature
             try {
-                (this.server as any).registerTool({
-                    name,
-                    description,
-                    parameters,
-                    run: handler,
-                } as any);
+                (this.server as any).registerTool(descriptor);
                 console.log(`Registered remote tool as local: ${name}`);
             } catch (err) {
                 try {
