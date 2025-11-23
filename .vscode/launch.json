@@ -15,6 +15,16 @@
       ]
     },
     {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch Proxy MCP Server",
+      "program": "${workspaceFolder}/ts_mcp_proxy/build/index.js",
+      "preLaunchTask": "tsc: build - ts_mcp_proxy/tsconfig.json",
+      "outFiles": [
+        "${workspaceFolder}/out/**/*.js"
+      ]
+    },
+    {
       "type": "dotnet",
       "request": "launch",
       "name": "Launch MCP Client Dotnet",
