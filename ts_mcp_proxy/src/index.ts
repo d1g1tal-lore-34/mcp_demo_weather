@@ -1,29 +1,34 @@
 import dotenv from 'dotenv';
 dotenv.config()
 import express, { Request, Response } from "express";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+// import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { buildMSALToken, RequestWithMsalAuth } from './security/auth_handler.js';
 import { MCPSSEProxy } from './tools/proxy_tools.js';
 // import { registerWeatherTools } from './tools/weather.js';
 
-// const tenantId = process.env.TENANT_ID
-// if (!tenantId) {
-//     throw new Error(
-//         "TENANT_ID not defined."
-//     )
-// }
+const tenantId = process.env.TENANT_ID
+if (!tenantId) {
+    throw new Error(
+        "TENANT_ID not defined."
+    )
+}
 
-// const clientId = process.env.CLIENT_ID
-// if (!clientId) {
-//     throw new Error(
-//         "CLIENT_ID not defined."
-//     )
-// }
+const clientId = process.env.CLIENT_ID
+if (!clientId) {
+    throw new Error(
+        "CLIENT_ID not defined."
+    )
+}
 
-const server = new McpServer({
+const server = new Server({
     name: "datadog-proxy-server",
-    version: "1.0.0"
+    version: "1.0.0",
+}, {
+    capabilities: {
+        tools: {}
+    }
 });
 
 const ddProxy = new MCPSSEProxy(server);
@@ -31,7 +36,7 @@ ddProxy.initialize();
 
 const app = express();
 app.use(express.json());
-// app.use(buildMSALToken({ tenantId, clientId }).unless({ path: ["/health"] }));
+app.use(buildMSALToken({ tenantId, clientId }).unless({ path: ["/health"] }));
 
 app.post('/mcp', async (req: Request, res: Response) => {
     // In stateless mode, create a new instance of transport and server for each request
@@ -104,3 +109,4 @@ function checkAuthorz(roles: string[] | undefined, roleName: string) {
 }
 
 app.listen(3001);
+console.log("MCP Proxy Server listening on port 3001");
