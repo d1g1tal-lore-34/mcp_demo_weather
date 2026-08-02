@@ -1,10 +1,9 @@
-import { expressjwt, Request as RequestJWT } from "express-jwt";
-import type { Request } from 'express';
-import jwksRsa, { GetVerificationKey } from "jwks-rsa";
+import { createRemoteJWKSet, jwtVerify, JWTPayload } from "jose";
+import type { OAuthTokenVerifier } from "@modelcontextprotocol/sdk/server/auth/provider.js";
 
-export function buildMSALToken({ tenantId, clientId }: { tenantId: string, clientId: string }) {
+export function createEntraTokenVerifier({ tenantId, clientId }: { tenantId: string, clientId: string }): OAuthTokenVerifier {
     // This is the URL where the public keys for the tenant are stored.
-    const jwksUri = `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`
+    const jwksUri = new URL(`https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`)
 
     // This issuer and audience are used for API scope with MSAL
     const issuer1 = `https://sts.windows.net/${tenantId}/`
@@ -14,27 +13,37 @@ export function buildMSALToken({ tenantId, clientId }: { tenantId: string, clien
     const issuer2 = `https://login.microsoftonline.com/${tenantId}/v2.0`
     const audience2 = `${clientId}`
 
-    return expressjwt({
-        secret: jwksRsa.expressJwtSecret({
-            jwksUri: jwksUri,
-            cache: true,
-            rateLimit: true,
-            jwksRequestsPerMinute: 5
-        }) as GetVerificationKey,
-        audience: [audience1, audience2],
-        issuer: [issuer1, issuer2],
-        algorithms: ["RS256"],
-        credentialsRequired: true
-    })
+    const jwks = createRemoteJWKSet(jwksUri)
+
+    return {
+        async verifyAccessToken(token: string) {
+            const { payload } = await jwtVerify(token, jwks, {
+                audience: [audience1, audience2],
+                issuer: [issuer1, issuer2],
+                algorithms: ["RS256"],
+            })
+
+            const roles = rolesClaim(payload)
+            const expiresAt = typeof payload.exp === "number" ? payload.exp : undefined
+
+            return {
+                token,
+                clientId: typeof payload.azp === "string" ? payload.azp : clientId,
+                scopes: roles ?? [],
+                expiresAt,
+                extra: { roles },
+            }
+        }
+    }
 }
 
-export type RequestWithMsalAuth = {
-    auth?: RequestJWT["auth"] & {
-        name?: string
-        unique_name?: string
-        upn?: string
-        oid?: string
-        scp?: string
-        roles?: string[]
+function rolesClaim(payload: JWTPayload): string[] | undefined {
+    const roles = payload.roles
+    if (typeof roles === "string") {
+        return [roles]
     }
-} & Request
+    if (Array.isArray(roles) && roles.every((r): r is string => typeof r === "string")) {
+        return roles
+    }
+    return undefined
+}

@@ -1,12 +1,13 @@
 import dotenv from 'dotenv';
 dotenv.config()
-import express, { Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { z } from "zod";
-import { buildMSALToken, RequestWithMsalAuth } from './security/auth_handler.js';
-import { getAlertsHandler, getForecastHandler } from './weather.js';
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
+import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
+import { createEntraTokenVerifier } from './security/auth_handler.js';
 import { checkAuthorz } from './auth.js';
+import { registerTools } from './tools/toolsIndex.js';
 
 const roleName = process.env.ROLE_NAME
 if (!roleName) {
@@ -29,73 +30,84 @@ if (!clientId) {
     )
 }
 
-const server = new McpServer({
-    name: "weather-server",
-    version: "1.0.0",
-    capabilites: {
-        resources: {},
-        tools: {}
-    }
-});
+const server = new McpServer(
+    { name: "weather-server", version: "1.0.0" },
+    { capabilities: { resources: {}, tools: {} } }
+);
 
-const app = express();
-app.use(buildMSALToken({ tenantId, clientId }).unless({ path: ["/health"] }));
+const app = createMcpExpressApp();
 
-const transports: { [sessionId: string]: SSEServerTransport } = {}
-
-app.get("/sse", async (req: RequestWithMsalAuth, res: Response) => {
-    // if (req.auth?.scp != "MCP.All") res.status(401).send(`Your not authorized to access this endpoint. Your current scope is ${req.auth?.scp}`)
-    if ( !checkAuthorz(req.auth?.roles, roleName) ) {
-        res.status(401).send(`Your not authorized to access this endpoint. Your current scope is ${req.auth?.roles}`)
-        return;
-    }
-
-    const transport = new SSEServerTransport('/messages', res);
-    transports[transport.sessionId] = transport;
-    res.on("close", () => {
-        delete transports[transport.sessionId];
-    })
-    await server.connect(transport);
-});
-
-app.post("/messages", async (req: RequestWithMsalAuth, res: Response) => {
-    // if (req.auth?.scp != "MCP.All") res.status(401).send(`Your not authorized to access this endpoint. Your current scope is ${req.auth?.scp}`)
-    if ( !checkAuthorz(req.auth?.roles, roleName) ) {
-        res.status(401).send(`Your not authorized to access this endpoint. Your current scope is ${req.auth?.roles}`)
-        return;
-    }
-
-    const sessionId = req.query.sessionId as string;
-    const transport = transports[sessionId];
-    if (transport) {
-        await transport.handlePostMessage(req, res);
-    } else {
-        res.status(400).send(`No transport found for sessionId ${sessionId}`)
-    }
-});
-
-app.get("/health", (req: RequestWithMsalAuth, res: Response) => {
+app.get("/health", (req, res: Response) => {
     res.send("Hello World, i'm healthy!!");
 });
 
-// Register weather tools
-server.tool(
-    "get-alerts",
-    "Get weather alerts for a state",
-    {
-        state: z.string().length(2).describe("Two-letter state code (e.g. CA, NY)"),
-    },
-    async ({ state }) => getAlertsHandler(state),
-);
+app.use(requireBearerAuth({
+    verifier: createEntraTokenVerifier({ tenantId, clientId }),
+}));
 
-server.tool(
-    "get-forecast",
-    "Get weather forecast for a location",
-    {
-        latitude: z.number().min(-90).max(90).describe("Latitude of the location"),
-        longitude: z.number().min(-180).max(180).describe("Longitude of the location"),
-    },
-    async ({ latitude, longitude }) => getForecastHandler(latitude, longitude),
-);
+app.use((req, res: Response, next: NextFunction) => {
+    if ( !checkAuthorz(req.auth?.scopes, roleName) ) {
+        res.status(401).send(`Your not authorized to access this endpoint. Your current role is ${req.auth?.scopes}`)
+        return;
+    }
+
+    next();
+});
+
+app.post('/mcp', async (req: Request, res: Response) => {
+    try {
+        const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
+            sessionIdGenerator: undefined
+        });
+        await server.connect(transport);
+        await transport.handleRequest(req, res, req.body);
+        res.on('close', () => {
+            console.log('Request closed');
+            transport.close();
+        });
+    } catch (error) {
+        console.error('Error handling MCP request:', error);
+        if (!res.headersSent) {
+            res.status(500).json({
+                jsonrpc: '2.0',
+                error: {
+                    code: -32603,
+                    message: 'Internal server error'
+                },
+                id: null
+            });
+        }
+    }
+});
+
+app.get('/mcp', async (req: Request, res: Response) => {
+    console.log('Received GET MCP request');
+    res.writeHead(405).end(
+        JSON.stringify({
+            jsonrpc: '2.0',
+            error: {
+                code: -32000,
+                message: 'Method not allowed.'
+            },
+            id: null
+        })
+    );
+});
+
+app.delete('/mcp', async (req: Request, res: Response) => {
+    console.log('Received DELETE MCP request');
+    res.writeHead(405).end(
+        JSON.stringify({
+            jsonrpc: '2.0',
+            error: {
+                code: -32000,
+                message: 'Method not allowed.'
+            },
+            id: null
+        })
+    );
+});
+
+registerTools(server);
 
 app.listen(3001);

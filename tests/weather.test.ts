@@ -4,7 +4,7 @@ import {
     formatForecast,
     getAlertsHandler,
     getForecastHandler,
-} from '../src/weather.js';
+} from '../src/tools/weather/weather.js';
 
 const fetchMock = jest.fn();
 

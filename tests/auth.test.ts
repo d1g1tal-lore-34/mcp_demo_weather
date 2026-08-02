@@ -9,11 +9,11 @@ describe('checkAuthorz', () => {
         expect(checkAuthorz(['Weather.User', 'Other'], 'Weather.User')).toBe(true);
     });
 
-    it('returns true when roles is truthy even without the role (current buggy behavior)', () => {
-        expect(checkAuthorz(['Other'], 'Weather.User')).toBe(true);
+    it('returns false when roles is present but does not contain the role', () => {
+        expect(checkAuthorz(['Other'], 'Weather.User')).toBe(false);
     });
 
-    it('returns true for an empty roles array', () => {
-        expect(checkAuthorz([], 'Weather.User')).toBe(true);
+    it('returns false for an empty roles array', () => {
+        expect(checkAuthorz([], 'Weather.User')).toBe(false);
     });
 });
