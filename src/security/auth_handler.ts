@@ -1,5 +1,6 @@
 import { createRemoteJWKSet, jwtVerify, JWTPayload } from "jose";
-import type { OAuthTokenVerifier } from "@modelcontextprotocol/sdk/server/auth/provider.js";
+import { OAuthError, OAuthErrorCode } from "@modelcontextprotocol/server";
+import type { OAuthTokenVerifier } from "@modelcontextprotocol/express";
 
 export function createEntraTokenVerifier({ tenantId, clientId }: { tenantId: string, clientId: string }): OAuthTokenVerifier {
     // This is the URL where the public keys for the tenant are stored.
@@ -17,11 +18,16 @@ export function createEntraTokenVerifier({ tenantId, clientId }: { tenantId: str
 
     return {
         async verifyAccessToken(token: string) {
-            const { payload } = await jwtVerify(token, jwks, {
-                audience: [audience1, audience2],
-                issuer: [issuer1, issuer2],
-                algorithms: ["RS256"],
-            })
+            let payload: JWTPayload;
+            try {
+                ({ payload } = await jwtVerify(token, jwks, {
+                    audience: [audience1, audience2],
+                    issuer: [issuer1, issuer2],
+                    algorithms: ["RS256"],
+                }))
+            } catch (error) {
+                throw new OAuthError(OAuthErrorCode.InvalidToken, `Token verification failed: ${error instanceof Error ? error.message : String(error)}`)
+            }
 
             const roles = rolesClaim(payload)
             const expiresAt = typeof payload.exp === "number" ? payload.exp : undefined

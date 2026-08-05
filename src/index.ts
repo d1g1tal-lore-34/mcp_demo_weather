@@ -1,10 +1,9 @@
 import dotenv from 'dotenv';
 dotenv.config()
 import { NextFunction, Request, Response } from "express";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
-import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
+import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
+import { createMcpExpressApp, requireBearerAuth } from "@modelcontextprotocol/express";
+import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createEntraTokenVerifier } from './security/auth_handler.js';
 import { checkAuthorz } from './auth.js';
 import { registerTools } from './tools/toolsIndex.js';
@@ -30,10 +29,13 @@ if (!clientId) {
     )
 }
 
-const server = new McpServer(
-    { name: "weather-server", version: "1.0.0" },
-    { capabilities: { resources: {}, tools: {} } }
-);
+const buildServer = () => {
+    const server = new McpServer({ name: "weather-server", version: "2.0.0" });
+    registerTools(server);
+    return server;
+};
+
+const node = toNodeHandler(createMcpHandler(buildServer));
 
 const app = createMcpExpressApp();
 
@@ -52,32 +54,6 @@ app.use((req, res: Response, next: NextFunction) => {
     }
 
     next();
-});
-
-app.post('/mcp', async (req: Request, res: Response) => {
-    try {
-        const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
-            sessionIdGenerator: undefined
-        });
-        await server.connect(transport);
-        await transport.handleRequest(req, res, req.body);
-        res.on('close', () => {
-            console.log('Request closed');
-            transport.close();
-        });
-    } catch (error) {
-        console.error('Error handling MCP request:', error);
-        if (!res.headersSent) {
-            res.status(500).json({
-                jsonrpc: '2.0',
-                error: {
-                    code: -32603,
-                    message: 'Internal server error'
-                },
-                id: null
-            });
-        }
-    }
 });
 
 app.get('/mcp', async (req: Request, res: Response) => {
@@ -108,6 +84,8 @@ app.delete('/mcp', async (req: Request, res: Response) => {
     );
 });
 
-registerTools(server);
+app.all('/mcp', (req: Request, res: Response) => {
+    void node(req, res, req.body);
+});
 
 app.listen(3001);
