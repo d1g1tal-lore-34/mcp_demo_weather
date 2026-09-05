@@ -29,15 +29,9 @@ Server throws at import time if missing, so any run needs all three (or a `.env`
 
 ## Structure
 
-- `src/index.ts` — entrypoint: env validation, `createMcpHandler(createWeatherServer)` + `setNotifyToolsChanged(() => handler.notify.toolsChanged())` + `toNodeHandler`, express app (`createMcpExpressApp`), `/health`, global bearer-auth + role-gate middleware, `/mcp` catch-all (405 for GET/DELETE), `app.listen(3001)`.
-- `src/server.ts` — module-level `stateCodec` + `createWeatherServer()` factory (`McpServer` with `requestState: { verify }` + `registerTools(server, stateCodec)` + `registerPrompts(server)`), extracted for testability (never imported directly from `index.ts`).
-- `src/tools/toolsIndex.ts` — `registerTools(server, stateCodec)`: registers `get-alerts` (2-letter state), `get-forecast` (lat/lon), the MRTR `get-weather-briefing` (returns `InputRequiredResult` until confirmed via `inputResponses`), `toggle-radar-tool` (flips the `toolRegistry` flag + fires `tools_list_changed`), and `get-radar` only when `isRadarToolEnabled()`.
-- `src/tools/toolRegistry.ts` — module-level process-wide toggle state + `setNotifyToolsChanged`/`triggerToolsChanged` indirection (per-request servers share it; avoids a circular import back to `index.ts`).
-- `src/tools/prompts/prompts.ts` — `registerPrompts(server)` registers the `weather-briefing` prompt with a `completable` US-state argument; `buildWeatherBriefingPrompt` is pure.
-- `src/tools/weather/weather.ts` — pure NWS logic (fetch + formatting + tool handlers), extracted for testability.
-- `src/tools/weather/briefing.ts` — MRTR confirmation: `buildConfirmRequest` (`inputRequired` + `elicit`), `extractConfirmation` (`acceptedContent`), `weatherBriefingHandler(state, codec, round)`.
-- `src/tools/weather/radar.ts` — pure `radarUrlFor(latitude, longitude)` canned demo output (no network call).
-- `src/auth.ts` — `checkAuthorz`.
-- `src/security/auth_handler.ts` — `createEntraTokenVerifier` (`jose`-backed `OAuthTokenVerifier` for `requireBearerAuth`).
-- `tests/` — jest unit tests (`weather.test.ts`, `auth.test.ts`, `toolRegistry.test.ts`, `subscriptions.test.ts`, `briefing.test.ts`, `prompts.test.ts`, `radar.test.ts`); excluded from `tsc` via `tsconfig.json` `include: ["src/**"]`.
-- `plans/` — short feature-plan markdowns (feature/requirements/success-criteria format); read before starting work that matches them. `ModernizeEntraSecurity.md` documents the current auth setup; `AddUnitTests.md` documents the test setup.
+- `src/` - Contains all of the application
+- `src/tools/` - Contains all the MCP Server Tools
+- `tests/` - Location of all test cases
+- `plans/` - short feature-plan markdowns; should be ignored unless writing new plans or reading from it to implement
+- `build/`, `node_modules` should be ignored, given that this post build
+

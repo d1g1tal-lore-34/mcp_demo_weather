@@ -9,26 +9,26 @@ import { checkAuthorz } from './auth.js';
 import { createWeatherServer } from './server.js';
 import { setNotifyToolsChanged } from './tools/toolRegistry.js';
 
-// const roleName = process.env.ROLE_NAME
-// if (!roleName) {
-//     throw new Error(
-//         "ROLE_NAME not defined."
-//     )
-// }
+const roleName = process.env.ROLE_NAME
+if (!roleName) {
+    throw new Error(
+        "ROLE_NAME not defined."
+    )
+}
 
-// const tenantId = process.env.TENANT_ID
-// if (!tenantId) {
-//     throw new Error(
-//         "TENANT_ID not defined."
-//     )
-// }
+const tenantId = process.env.TENANT_ID
+if (!tenantId) {
+    throw new Error(
+        "TENANT_ID not defined."
+    )
+}
 
-// const clientId = process.env.CLIENT_ID
-// if (!clientId) {
-//     throw new Error(
-//         "CLIENT_ID not defined."
-//     )
-// }
+const clientId = process.env.CLIENT_ID
+if (!clientId) {
+    throw new Error(
+        "CLIENT_ID not defined."
+    )
+}
 
 const handler = createMcpHandler(createWeatherServer);
 setNotifyToolsChanged(() => handler.notify.toolsChanged());
@@ -40,18 +40,18 @@ app.get("/health", (req, res: Response) => {
     res.send("Hello World, i'm healthy!!");
 });
 
-// app.use(requireBearerAuth({
-//     verifier: createEntraTokenVerifier({ tenantId, clientId }),
-// }));
+app.use(requireBearerAuth({
+    verifier: createEntraTokenVerifier({ tenantId, clientId }),
+}));
 
-// app.use((req, res: Response, next: NextFunction) => {
-//     if ( !checkAuthorz(req.auth?.scopes, roleName) ) {
-//         res.status(401).send(`Your not authorized to access this endpoint. Your current role is ${req.auth?.scopes}`)
-//         return;
-//     }
+app.use((req, res: Response, next: NextFunction) => {
+    if ( !checkAuthorz(req.auth?.scopes, roleName) ) {
+        res.status(401).send(`Your not authorized to access this endpoint. Your current role is ${req.auth?.scopes}`)
+        return;
+    }
 
-//     next();
-// });
+    next();
+});
 
 app.get('/mcp', async (req: Request, res: Response) => {
     console.log('Received GET MCP request');
