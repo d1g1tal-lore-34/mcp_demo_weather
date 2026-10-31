@@ -1,4 +1,9 @@
-import { completable, type GetPromptResult, McpServer } from "@modelcontextprotocol/server";
+import {
+    completable,
+    type GetPromptResult,
+    McpServer,
+    requireScopes,
+} from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 export const US_STATES = [
@@ -27,7 +32,9 @@ export function buildWeatherBriefingPrompt(state: string): GetPromptResult {
     };
 }
 
-export function registerPrompts(server: McpServer) {
+export function registerPrompts(server: McpServer, roleName?: string) {
+    const guard = roleName ? { scopeChallenge: requireScopes(roleName) } : {};
+    
     server.registerPrompt(
         "weather-briefing",
         {
@@ -40,6 +47,7 @@ export function registerPrompts(server: McpServer) {
                         US_STATES.filter((state) => state.startsWith(value.toUpperCase())).slice(0, 10),
                 ),
             }),
+            ...guard,
         },
         ({ state }) => buildWeatherBriefingPrompt(state),
     );

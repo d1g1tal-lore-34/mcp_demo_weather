@@ -1,11 +1,9 @@
 import dotenv from 'dotenv';
 dotenv.config()
-import { NextFunction, Request, Response } from "express";
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import { createMcpExpressApp, requireBearerAuth } from "@modelcontextprotocol/express";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createEntraTokenVerifier } from './security/auth_handler.js';
-import { checkAuthorz } from './auth.js';
 import { createWeatherServer } from './server.js';
 import { setNotifyToolsChanged } from './tools/toolRegistry.js';
 
@@ -30,58 +28,22 @@ if (!clientId) {
     )
 }
 
-const handler = createMcpHandler(createWeatherServer);
+const handler = createMcpHandler(() => createWeatherServer(roleName));
 setNotifyToolsChanged(() => handler.notify.toolsChanged());
 const node = toNodeHandler(handler);
 
 const app = createMcpExpressApp();
 
-app.get("/health", (req, res: Response) => {
+app.get("/health", (req, res) => {
     res.send("Hello World, i'm healthy!!");
 });
 
 app.use(requireBearerAuth({
     verifier: createEntraTokenVerifier({ tenantId, clientId }),
+    expectedResource: new URL(`api://${clientId}`),
 }));
 
-app.use((req, res: Response, next: NextFunction) => {
-    if ( !checkAuthorz(req.auth?.scopes, roleName) ) {
-        res.status(401).send(`Your not authorized to access this endpoint. Your current role is ${req.auth?.scopes}`)
-        return;
-    }
-
-    next();
-});
-
-app.get('/mcp', async (req: Request, res: Response) => {
-    console.log('Received GET MCP request');
-    res.writeHead(405).end(
-        JSON.stringify({
-            jsonrpc: '2.0',
-            error: {
-                code: -32000,
-                message: 'Method not allowed.'
-            },
-            id: null
-        })
-    );
-});
-
-app.delete('/mcp', async (req: Request, res: Response) => {
-    console.log('Received DELETE MCP request');
-    res.writeHead(405).end(
-        JSON.stringify({
-            jsonrpc: '2.0',
-            error: {
-                code: -32000,
-                message: 'Method not allowed.'
-            },
-            id: null
-        })
-    );
-});
-
-app.all('/mcp', (req: Request, res: Response) => {
+app.all('/mcp', (req, res) => {
     void node(req, res, req.body);
 });
 

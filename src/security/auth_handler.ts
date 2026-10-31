@@ -32,11 +32,15 @@ export function createEntraTokenVerifier({ tenantId, clientId }: { tenantId: str
             const roles = rolesClaim(payload)
             const expiresAt = typeof payload.exp === "number" ? payload.exp : undefined
 
+            // Normalize both Entra audience forms to one canonical resource URL for expectedResource check
+            const resource = new URL(`api://${clientId}`);
+            
             return {
                 token,
                 clientId: typeof payload.azp === "string" ? payload.azp : clientId,
                 scopes: roles ?? [],
                 expiresAt,
+                resource,
                 extra: { roles },
             }
         }
