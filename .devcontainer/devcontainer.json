@@ -14,10 +14,8 @@
 		"source=opencode-data,target=/opencode,type=volume"
 	],
 	"containerEnv": {
-		"OPENCODE_CONFIG_DIR": "/opencode/config",
-		"OPENCODE_DATA_DIR": "/opencode/data",
-		"OPENCODE_STATE_DIR": "/opencode/state",
-		"OPENCODE_CACHE_DIR": "/opencode/cache"
+	    "XDG_DATA_HOME": "/opencode/data",
+    	"XDG_CONFIG_HOME": "/opencode/config"
 	},
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},
