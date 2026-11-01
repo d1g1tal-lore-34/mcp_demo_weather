@@ -1,0 +1,33 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
+{
+	"name": "mcp_demo_weather",
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	"image": "mcr.microsoft.com/devcontainers/base:ubuntu24.04",
+	"features": {
+		"ghcr.io/devcontainers/features/terraform:1": {},
+		"ghcr.io/devcontainers/features/node:2": {
+			"version": "22"
+		}
+	},
+	"mounts": [
+		"source=opencode-data,target=/opencode,type=volume"
+	],
+	"containerEnv": {
+	    "XDG_DATA_HOME": "/opencode/data",
+    	"XDG_CONFIG_HOME": "/opencode/config"
+	},
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	// "features": {},
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+	// Use 'postCreateCommand' to run commands after the container is created.
+	"postCreateCommand": {
+		"install-opencode": "curl -fsSL https://opencode.ai/v2/install | bash",
+		"fix-permissions": "sudo chown -R vscode:vscode /opencode"
+	},
+	// Configure tool-specific properties.
+	// "customizations": {},
+	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+	"remoteUser": "vscode"
+}
